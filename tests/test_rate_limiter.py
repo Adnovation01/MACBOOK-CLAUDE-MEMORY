@@ -10,10 +10,12 @@ def test_wait_enforces_minimum_delay():
     assert elapsed >= 0.08
 
 def test_failure_count_increments():
-    rl = RateLimiter({})
+    slept = []
+    rl = RateLimiter({}, sleep_fn=slept.append)
     assert rl.failure_count('x') == 0
-    rl._fail_count['x'] = 1
+    rl.record_failure('x')
     assert rl.failure_count('x') == 1
+    assert len(slept) == 1  # backoff was called once
 
 def test_reset_failures():
     rl = RateLimiter({})
