@@ -1,0 +1,38 @@
+{
+  "plugins": {
+    "duckduckgo": {"enabled": true},
+    "bing_search": {"enabled": true},
+    "google_search": {"enabled": true},
+    "google_maps": {"enabled": true},
+    "yellowpages": {"enabled": true},
+    "yelp": {"enabled": true},
+    "bbb": {"enabled": true},
+    "manta": {"enabled": true},
+    "superpages": {"enabled": true},
+    "hotfrog": {"enabled": true},
+    "whitepages": {"enabled": true},
+    "foursquare": {"enabled": true},
+    "cylex": {"enabled": true},
+    "clutch": {"enabled": true},
+    "brownbook": {"enabled": true},
+    "facebook": {"enabled": true},
+    "instagram": {"enabled": true},
+    "linkedin": {"enabled": true},
+    "twitter": {"enabled": true},
+    "youtube": {"enabled": true},
+    "reddit": {"enabled": true},
+    "trustpilot": {"enabled": true},
+    "healthgrades": {"enabled": true},
+    "angi": {"enabled": true},
+    "thumbtack": {"enabled": true},
+    "opencorporates": {"enabled": true},
+    "state_registry": {"enabled": true}
+  },
+  "niche_plugins": {
+    "dentist": ["healthgrades"],
+    "doctor": ["healthgrades"],
+    "roofing": ["angi", "thumbtack"],
+    "yoga": ["thumbtack"],
+    "default": ["trustpilot", "thumbtack"]
+  }
+}
