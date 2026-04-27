@@ -14,7 +14,7 @@ def test_lead_to_dict():
     assert d["sources"] == ["yelp"]
     assert "scraped_at" in d
 
-def test_lead_merges_pain_points():
+def test_lead_accepts_pain_points():
     lead = Lead(business_name="Test", pain_points=["slow service", "bad reviews"])
     assert len(lead.pain_points) == 2
 

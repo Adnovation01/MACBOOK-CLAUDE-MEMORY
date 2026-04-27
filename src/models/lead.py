@@ -41,6 +41,6 @@ class Lead:
     def to_dict(self) -> dict:
         d = asdict(self)
         d['scraped_at'] = self.scraped_at.isoformat()
-        if self.last_ad_seen:
+        if self.last_ad_seen is not None:
             d['last_ad_seen'] = self.last_ad_seen.isoformat()
         return d
