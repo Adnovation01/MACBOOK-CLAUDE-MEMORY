@@ -37,8 +37,9 @@ def init_db():
     ]:
         try:
             cursor.execute(f'ALTER TABLE leads ADD COLUMN {col} {col_type}')
-        except Exception:
-            pass  # column already exists
+        except sqlite3.OperationalError as e:
+            if 'duplicate column name' not in str(e):
+                raise
     
     # Missions Table (Track who is scraping what)
     cursor.execute('''
