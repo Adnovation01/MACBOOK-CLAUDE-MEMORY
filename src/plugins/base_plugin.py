@@ -13,3 +13,6 @@ class BasePlugin(ABC):
 
     def is_available(self) -> bool:
         return True
+
+    def health_check(self) -> dict:
+        return {"status": "healthy", "error": None}
