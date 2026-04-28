@@ -1,4 +1,66 @@
 {% extends "base.html" %}
 {% block page_title %}Content{% endblock %}
 {% block heading %}Content Generator{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Content — stub.</p>{% endblock %}
+{% block actions %}
+  <button class="btn btn-primary" onclick="generatePosts(this)">&#10024; Generate Posts</button>
+{% endblock %}
+
+{% block content %}
+<div id="gen-result"></div>
+<div id="posts-wrap">
+{% if posts %}
+  {% for post in posts %}
+  <div class="card">
+    <div class="card-header">
+      <h3>{{ post.title }}</h3>
+      <button class="btn btn-secondary" style="font-size:11px"
+        onclick="copyPost(this, {{ loop.index0 }})">&#128203; Copy</button>
+    </div>
+    <div class="card-body" style="white-space:pre-wrap;font-size:13px;color:#475569;line-height:1.6"
+      id="post-{{ loop.index0 }}">{{ post.content }}</div>
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card">
+    <div class="card-body" style="text-align:center;color:#94a3b8;padding:48px">
+      No posts yet. Click <strong>&#10024; Generate Posts</strong> to create LinkedIn content from your recent leads.
+    </div>
+  </div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generatePosts(btn) {
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  const r = await fetch('/api/content/generate', {method: 'POST'});
+  const data = await r.json();
+  btn.disabled = false; btn.textContent = '✨ Generate Posts';
+  if (data.status === 'success') {
+    document.getElementById('posts-wrap').innerHTML = data.posts.map((p, i) => `
+      <div class="card">
+        <div class="card-header">
+          <h3>${p.title}</h3>
+          <button class="btn btn-secondary" style="font-size:11px"
+            onclick="copyPost(this, ${i})">📋 Copy</button>
+        </div>
+        <div class="card-body" style="white-space:pre-wrap;font-size:13px;color:#475569;line-height:1.6"
+          id="post-${i}">${p.content}</div>
+      </div>
+    `).join('');
+  } else {
+    document.getElementById('gen-result').innerHTML =
+      `<div class="alert alert-error">❌ ${data.message}</div>`;
+  }
+}
+
+function copyPost(btn, idx) {
+  const text = document.getElementById('post-' + idx).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ Copied';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+</script>
+{% endblock %}

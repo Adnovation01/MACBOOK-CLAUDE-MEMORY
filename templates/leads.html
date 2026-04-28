@@ -1,4 +1,70 @@
 {% extends "base.html" %}
 {% block page_title %}Leads CRM{% endblock %}
-{% block heading %}Leads CRM{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Leads — stub.</p>{% endblock %}
+{% block heading %}Leads CRM <span style="font-size:13px;font-weight:400;color:#94a3b8;margin-left:8px">{{ leads|length }} total</span>{% endblock %}
+{% block actions %}
+  <input class="search-bar" type="text" id="lead-search" placeholder="&#128269; Search leads&hellip;" oninput="filterLeads()">
+  <a href="{{ url_for('export_leads') }}" class="btn btn-success">&#128229; Export Excel</a>
+{% endblock %}
+
+{% block content %}
+{% if leads %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Business</th><th>Email</th><th>Location</th><th>Niche</th><th>Pain Points</th><th>Action</th></tr>
+      </thead>
+      <tbody id="leads-body">
+        {% for lead in leads %}
+        <tr class="lead-row">
+          <td><strong>{{ lead.name or '&mdash;' }}</strong></td>
+          <td style="font-size:11px">{{ lead.email or '&mdash;' }}</td>
+          <td>{{ lead.location or '&mdash;' }}</td>
+          <td>{{ lead.niche or '&mdash;' }}</td>
+          <td style="font-size:11px;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ lead.pain_points or '' }}">
+            {{ lead.pain_points or '&mdash;' }}
+          </td>
+          <td>
+            <select class="action-select" onchange="updateAction({{ lead.id }}, this.value)">
+              {% for opt in ['READY','SEND','SKIP','DONE'] %}
+                <option value="{{ opt }}" {% if lead.action == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="card-body" style="text-align:center;color:#94a3b8;padding:48px">
+    No leads yet. <a href="{{ url_for('scraper') }}" style="color:#2563eb">Run a scraping campaign &#8594;</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterLeads() {
+  const q = document.getElementById('lead-search').value.toLowerCase();
+  document.querySelectorAll('.lead-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+async function updateAction(leadId, action) {
+  const r = await fetch('/api/update-lead', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({lead_id: leadId, action: action})
+  });
+  const data = await r.json();
+  if (data.status !== 'success') {
+    alert('Failed to update: ' + (data.message || 'unknown error'));
+  }
+}
+</script>
+{% endblock %}

@@ -1,4 +1,137 @@
 {% extends "base.html" %}
 {% block page_title %}Settings{% endblock %}
 {% block heading %}Settings &amp; Credentials{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Settings — stub.</p>{% endblock %}
+{% block actions %}
+  <span id="save-msg" style="font-size:12px;color:#15803d"></span>
+  <button class="btn btn-primary" onclick="saveAll(this)">&#128190; Save All</button>
+{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+  <div class="card">
+    <div class="card-header"><h3>&#128231; Gmail Outreach</h3></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gmail Address</label>
+          <input type="email" id="email_user" value="{{ email_user }}" placeholder="you@gmail.com">
+        </div>
+        <div class="form-group">
+          <label>App Password</label>
+          <input type="password" id="email_pass"
+            placeholder="{{ '••••••••' if email_pass_set else 'xxxx xxxx xxxx xxxx' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>BCC Email (optional)</label>
+        <input type="email" id="bcc_email" value="{{ bcc_email }}" placeholder="bcc@yourdomain.com">
+      </div>
+      <button class="btn btn-secondary" onclick="testGmail(this)" style="margin-top:4px">
+        &#9989; Test Connection
+      </button>
+      <div id="gmail-result" style="margin-top:8px;font-size:12px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>&#128273; API Keys</h3></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label>OpenAI API Key</label>
+        <input type="password" id="openai_key"
+          placeholder="{{ '••••••••' if openai_key_set else 'sk-…' }}">
+      </div>
+      <div class="form-group">
+        <label>Resend API Key</label>
+        <input type="password" id="resend_key"
+          placeholder="{{ '••••••••' if resend_key_set else 're_…' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h3>&#128100; Your Identity</h3>
+      <span style="font-size:11px;color:#94a3b8">Also used as email sender name</span>
+    </div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" id="your_name" value="{{ your_name }}" placeholder="Nalin Patel">
+        </div>
+        <div class="form-group">
+          <label>Your Title</label>
+          <input type="text" id="your_title" value="{{ your_title }}" placeholder="AI Consultant">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Your Website</label>
+        <input type="text" id="your_website" value="{{ your_website }}" placeholder="https://yourdomain.com">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>&#127919; Campaign Defaults</h3></div>
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Default Niche</label>
+          <input type="text" id="default_niche" value="{{ default_niche }}" placeholder="Dentist">
+        </div>
+        <div class="form-group">
+          <label>Default Location</label>
+          <input type="text" id="default_location" value="{{ default_location }}" placeholder="California">
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="alert alert-info" style="margin-top:4px">
+  &#128190; Saved to your local <code>.env</code> file &mdash; never leaves your machine.
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fv(id) { return document.getElementById(id).value.trim(); }
+
+async function saveAll(btn) {
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+  const r = await fetch('/api/settings/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      email_user: fv('email_user'), email_pass: fv('email_pass'),
+      bcc_email: fv('bcc_email'), your_name: fv('your_name'),
+      your_title: fv('your_title'), your_website: fv('your_website'),
+      openai_key: fv('openai_key'), resend_key: fv('resend_key'),
+      default_niche: fv('default_niche'), default_location: fv('default_location'),
+    })
+  });
+  const data = await r.json();
+  btn.disabled = false; btn.textContent = '💾 Save All';
+  const msg = document.getElementById('save-msg');
+  msg.textContent = data.status === 'success' ? '✅ Saved' : '❌ ' + data.message;
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+}
+
+async function testGmail(btn) {
+  btn.disabled = true; btn.textContent = '⏳ Testing…';
+  const r = await fetch('/api/settings/test-gmail', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email_user: fv('email_user'), email_pass: fv('email_pass')})
+  });
+  const data = await r.json();
+  btn.disabled = false; btn.textContent = '✅ Test Connection';
+  const el = document.getElementById('gmail-result');
+  el.textContent = data.message;
+  el.style.color = data.status === 'success' ? '#15803d' : '#b91c1c';
+}
+</script>
+{% endblock %}

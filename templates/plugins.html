@@ -1,4 +1,53 @@
 {% extends "base.html" %}
 {% block page_title %}Plugins{% endblock %}
 {% block heading %}Plugins{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Plugins — stub.</p>{% endblock %}
+{% block actions %}
+  <span id="save-status" style="font-size:12px;color:#15803d"></span>
+{% endblock %}
+
+{% block content %}
+{% for group_name, plugin_names in plugin_groups.items() %}
+<div class="plugin-section-label">{{ group_name }}</div>
+<div class="plugin-grid">
+  {% for pname in plugin_names %}
+  {% set enabled = config.get(pname, {}).get('enabled', false) %}
+  <div class="plugin-card {% if enabled %}enabled{% endif %}" id="card-{{ pname }}">
+    <span>{{ pname | replace('_', ' ') | title }}</span>
+    <label class="toggle-wrap">
+      <input type="checkbox" {% if enabled %}checked{% endif %}
+        onchange="togglePlugin('{{ pname }}', this.checked, this)">
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="alert alert-info" style="margin-top:16px">
+  &#128161; Social plugins (Facebook, Instagram, LinkedIn, Twitter) require credentials.
+  Add them in <a href="{{ url_for('settings') }}" style="color:#1d4ed8">Settings &#8594;</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function togglePlugin(name, enabled, checkbox) {
+  const r = await fetch('/api/plugins/toggle', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({plugin: name, enabled: enabled})
+  });
+  const data = await r.json();
+  const card = document.getElementById('card-' + name);
+  if (data.status === 'success') {
+    card.classList.toggle('enabled', enabled);
+    const msg = document.getElementById('save-status');
+    msg.textContent = '✅ Saved';
+    setTimeout(() => { msg.textContent = ''; }, 2000);
+  } else {
+    checkbox.checked = !enabled;
+    alert('Failed: ' + data.message);
+  }
+}
+</script>
+{% endblock %}

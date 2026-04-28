@@ -1,4 +1,63 @@
 {% extends "base.html" %}
 {% block page_title %}Dashboard{% endblock %}
 {% block heading %}Dashboard{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Dashboard — stub.</p>{% endblock %}
+{% block actions %}
+  <a href="{{ url_for('export_leads') }}" class="btn btn-secondary">&#128229; Export Excel</a>
+  <a href="{{ url_for('scraper') }}" class="btn btn-primary">&#9654; New Campaign</a>
+{% endblock %}
+
+{% block content %}
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total Leads</div>
+    <div class="stat-value">{{ total_leads }}</div>
+    <div class="stat-sub">in database</div>
+  </div>
+  <div class="stat-card blue">
+    <div class="stat-label">Emails Sent</div>
+    <div class="stat-value">{{ emails_sent }}</div>
+    <div class="stat-sub">via sequences</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-label">Due Today</div>
+    <div class="stat-value">{{ queue_due }}</div>
+    <div class="stat-sub">emails in queue</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-label">Engine</div>
+    <div class="stat-value" style="font-size:18px">Ready</div>
+    <div class="stat-sub"><a href="{{ url_for('scraper') }}" style="color:#059669">run a campaign &#8594;</a></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Recent Leads</h3>
+    <a href="{{ url_for('leads') }}" class="btn btn-secondary" style="font-size:11px;padding:5px 10px">View all &#8594;</a>
+  </div>
+  {% if recent_leads %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Business</th><th>Email</th><th>Location</th><th>Niche</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for lead in recent_leads %}
+        <tr>
+          <td><strong>{{ lead.name or '&mdash;' }}</strong></td>
+          <td style="font-size:11px">{{ lead.email or '&mdash;' }}</td>
+          <td>{{ lead.location or '&mdash;' }}</td>
+          <td>{{ lead.niche or '&mdash;' }}</td>
+          <td><span class="badge badge-{{ (lead.action or 'ready') | lower }}">{{ lead.action or 'READY' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body" style="text-align:center;color:#94a3b8;padding:40px">
+    No leads yet. <a href="{{ url_for('scraper') }}" style="color:#2563eb">Run a scraping campaign &#8594;</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

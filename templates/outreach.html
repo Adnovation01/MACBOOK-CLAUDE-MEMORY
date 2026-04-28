@@ -1,4 +1,91 @@
 {% extends "base.html" %}
 {% block page_title %}Outreach{% endblock %}
 {% block heading %}Outreach{% endblock %}
-{% block content %}<p style="color:#94a3b8;padding:24px">Outreach — stub.</p>{% endblock %}
+{% block actions %}
+  <button class="btn btn-primary" id="send-btn" onclick="sendDue()">
+    &#9654; Send Due Emails ({{ pending }})
+  </button>
+{% endblock %}
+
+{% block content %}
+{% if not has_gmail %}
+<div class="alert alert-warning">
+  &#9888;&#65039; Gmail not configured.
+  <a href="{{ url_for('settings') }}" style="color:#92400e;font-weight:500">Add credentials in Settings &#8594;</a>
+</div>
+{% endif %}
+
+<div id="send-result"></div>
+
+<div class="tabs">
+  <div class="tab active" onclick="loadTab('pending', this)">Queue ({{ pending }})</div>
+  <div class="tab" onclick="loadTab('sent', this)">Sent ({{ sent }})</div>
+  <div class="tab" onclick="loadTab('failed', this)">Failed ({{ failed }})</div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Business</th><th>Email</th><th>Framework</th><th>Scheduled</th><th></th></tr>
+      </thead>
+      <tbody id="queue-body">
+        <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px">Loading&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const FW = {aida:'AIDA',bab:'BAB',pas:'PAS',spin:'SPIN',value_wedge:'Value Wedge','4ps':'4Ps',breakup:'Breakup'};
+
+async function loadTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const r = await fetch('/api/outreach/queue?tab=' + tab);
+  const rows = await r.json();
+  const body = document.getElementById('queue-body');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px">No emails in this tab.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(row => `
+    <tr>
+      <td><strong>${row.business_name || '&mdash;'}</strong></td>
+      <td style="font-size:11px">${row.lead_email}</td>
+      <td><span class="badge badge-${row.framework}">${FW[row.framework] || row.framework}</span></td>
+      <td style="font-size:11px">${(row.scheduled_date || '').split('T')[0]}</td>
+      <td><button class="btn btn-secondary" style="font-size:10px;padding:3px 8px"
+        onclick="unsub('${row.lead_email}')">Unsub</button></td>
+    </tr>
+  `).join('');
+}
+
+async function sendDue() {
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true; btn.textContent = '⏳ Sending…';
+  const r = await fetch('/api/outreach/send-due', {method: 'POST'});
+  const data = await r.json();
+  btn.disabled = false; btn.textContent = '▶ Send Due Emails';
+  const div = document.getElementById('send-result');
+  div.innerHTML = data.status === 'success'
+    ? `<div class="alert alert-success">✅ ${data.message}</div>`
+    : `<div class="alert alert-error">❌ ${data.message}</div>`;
+  loadTab('pending', document.querySelector('.tab'));
+}
+
+async function unsub(email) {
+  if (!confirm('Unsubscribe ' + email + ' from all pending sequences?')) return;
+  await fetch('/api/outreach/unsubscribe', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email})
+  });
+  loadTab('pending', document.querySelector('.tab.active'));
+}
+
+document.addEventListener('DOMContentLoaded', () =>
+  loadTab('pending', document.querySelector('.tab')));
+</script>
+{% endblock %}
