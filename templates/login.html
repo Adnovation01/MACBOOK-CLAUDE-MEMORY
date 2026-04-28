@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login — AI Engine</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">&#9889; AI Business Engine</div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="flash flash-{{ category }}" style="margin-bottom:12px;border-radius:6px;padding:8px 12px">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" style="margin-top:8px">Sign in</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block page_title %}Dashboard{% endblock %} — AI Engine</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="shell">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      &#9889; AI Engine
+      <span class="badge-live">LIVE</span>
+    </div>
+    <div class="nav-label">Main</div>
+    <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+      <span>&#128202;</span> Dashboard
+    </a>
+    <a href="{{ url_for('scraper') }}" class="nav-item {% if active == 'scraper' %}active{% endif %}">
+      <span>&#128269;</span> Scraper
+    </a>
+    <a href="{{ url_for('leads') }}" class="nav-item {% if active == 'leads' %}active{% endif %}">
+      <span>&#128203;</span> Leads CRM
+    </a>
+    <div class="nav-label">Outreach</div>
+    <a href="{{ url_for('outreach') }}" class="nav-item {% if active == 'outreach' %}active{% endif %}">
+      <span>&#128231;</span> Outreach
+    </a>
+    <a href="{{ url_for('content') }}" class="nav-item {% if active == 'content' %}active{% endif %}">
+      <span>&#9997;&#65039;</span> Content
+    </a>
+    <div class="nav-label">Config</div>
+    <a href="{{ url_for('plugins') }}" class="nav-item {% if active == 'plugins' %}active{% endif %}">
+      <span>&#128268;</span> Plugins
+    </a>
+    <a href="{{ url_for('settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+      <span>&#9881;&#65039;</span> Settings
+    </a>
+    <div class="sidebar-footer">
+      {{ current_user.id }} &nbsp;&middot;&nbsp;
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="topbar">
+      <h1>{% block heading %}{% endblock %}</h1>
+      <div class="topbar-actions">{% block actions %}{% endblock %}</div>
+    </div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+        <div class="flash flash-{{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    <div class="content">{% block content %}{% endblock %}</div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='htmx.min.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
