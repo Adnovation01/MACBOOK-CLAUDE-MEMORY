@@ -23,7 +23,7 @@ class ScraperOrchestrator:
         self._enricher = WebsiteEnricher()
         self._rate_limiter = RateLimiter(RATE_CONFIG)
 
-    def scrape(self, keyword: str, location: str, max_leads: int = 50) -> List[Lead]:
+    def scrape(self, keyword: str, location: str, max_leads: int = 50, on_progress=None) -> List[Lead]:
         if not self._plugins:
             return []
         per_plugin = max(5, max_leads // len(self._plugins))
@@ -40,6 +40,8 @@ class ScraperOrchestrator:
                     leads = future.result(timeout=120)
                     all_leads.extend(leads)
                     logger.info(f"{plugin_name}: {len(leads)} leads")
+                    if on_progress:
+                        on_progress(plugin_name, len(all_leads))
                 except Exception as e:
                     logger.warning(f"{plugin_name} failed: {e}")
 
