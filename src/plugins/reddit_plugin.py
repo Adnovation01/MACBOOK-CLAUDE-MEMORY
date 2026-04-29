@@ -1,4 +1,5 @@
 import os
+import requests
 from typing import List
 from src.models.lead import Lead
 from src.plugins.base_plugin import BasePlugin
@@ -10,6 +11,16 @@ class RedditPlugin(BasePlugin):
 
     def is_available(self) -> bool:
         return bool(os.environ.get('REDDIT_CLIENT_ID') and os.environ.get('REDDIT_CLIENT_SECRET'))
+
+    def health_check(self) -> dict:
+        try:
+            r = requests.head('https://www.reddit.com', timeout=5,
+                              headers={'User-Agent': 'Mozilla/5.0'}, allow_redirects=True)
+            if r.status_code < 500:
+                return {"status": "healthy", "error": None}
+            return {"status": "failed", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "failed", "error": str(e)[:120]}
 
     def search(self, keyword: str, location: str, max_leads: int) -> List[Lead]:
         # Reddit enriches leads via pain points, not direct discovery
