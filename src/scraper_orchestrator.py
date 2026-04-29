@@ -22,8 +22,10 @@ class ScraperOrchestrator:
         self._deduplicator = Deduplicator(total_plugins=max(len(plugins), 1))
         self._enricher = WebsiteEnricher()
         self._rate_limiter = RateLimiter(RATE_CONFIG)
+        self.failed_plugins: List[str] = []
 
     def scrape(self, keyword: str, location: str, max_leads: int = 50, on_progress=None) -> List[Lead]:
+        self.failed_plugins = []
         if not self._plugins:
             return []
         per_plugin = max(5, max_leads // len(self._plugins))
@@ -44,6 +46,7 @@ class ScraperOrchestrator:
                         on_progress(plugin_name, len(all_leads))
                 except Exception as e:
                     logger.warning(f"{plugin_name} failed: {e}")
+                    self.failed_plugins.append(plugin_name)
 
         merged = self._deduplicator.deduplicate(all_leads)
         enriched = [self._enricher.enrich(lead) for lead in merged]

@@ -44,3 +44,14 @@ def test_empty_plugins_returns_empty():
     orch = ScraperOrchestrator(plugins=[])
     results = orch.scrape("dentist", "Austin, TX", max_leads=10)
     assert results == []
+
+
+def test_failed_plugins_are_tracked():
+    p1 = make_plugin("yelp", [Lead(business_name="Good Biz", city="NYC", state="NY",
+                                    sources=["yelp"], email="a@b.com")])
+    p2 = make_plugin("bbb", [])
+    p2.search.side_effect = Exception("connection timeout")
+    orch = ScraperOrchestrator(plugins=[p1, p2])
+    orch.scrape("dentist", "NYC, NY", max_leads=10)
+    assert "bbb" in orch.failed_plugins
+    assert "yelp" not in orch.failed_plugins
