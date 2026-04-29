@@ -1,8 +1,11 @@
 import time
+import requests
 from urllib.parse import quote
 from typing import List
 from src.models.lead import Lead
 from src.plugins.base_plugin import BasePlugin
+
+_HC_HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
 try:
     from playwright.sync_api import sync_playwright
@@ -19,6 +22,16 @@ class YellowPagesPlugin(BasePlugin):
 
     def is_available(self) -> bool:
         return PLAYWRIGHT_AVAILABLE
+
+    def health_check(self) -> dict:
+        try:
+            r = requests.head('https://www.yellowpages.com', timeout=5,
+                              headers=_HC_HEADERS, allow_redirects=True)
+            if r.status_code < 500:
+                return {"status": "healthy", "error": None}
+            return {"status": "failed", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "failed", "error": str(e)[:120]}
 
     def search(self, keyword: str, location: str, max_leads: int) -> List[Lead]:
         leads = []

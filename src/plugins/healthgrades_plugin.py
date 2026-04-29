@@ -12,6 +12,16 @@ class HealthgradesPlugin(BasePlugin):
     requires_auth = False
     rate_limit_seconds = 3.0
 
+    def health_check(self) -> dict:
+        try:
+            r = requests.head('https://www.healthgrades.com', timeout=5,
+                              headers=_H, allow_redirects=True)
+            if r.status_code < 500:
+                return {"status": "healthy", "error": None}
+            return {"status": "failed", "error": f"HTTP {r.status_code}"}
+        except Exception as e:
+            return {"status": "failed", "error": str(e)[:120]}
+
     def search(self, keyword: str, location: str, max_leads: int) -> List[Lead]:
         leads = []
         city = location.split(',')[0].strip()
