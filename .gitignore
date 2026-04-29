@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Social session cookies — contain live auth tokens
+config/sessions/*.json
