@@ -3,6 +3,14 @@
 {% block heading %}Scraper{% endblock %}
 
 {% block content %}
+<div class="card" id="preflight-card">
+  <div class="card-header"><h3>Plugin Status</h3></div>
+  <div class="card-body">
+    <div id="preflight-summary" style="font-size:13px;color:#64748b">Checking plugins&hellip;</div>
+    <div id="preflight-failed" style="font-size:12px;color:#b91c1c;margin-top:4px"></div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header"><h3>New Campaign</h3></div>
   <div class="card-body">
@@ -10,11 +18,13 @@
       <div class="form-row-3">
         <div class="form-group">
           <label>Industry / Niche</label>
-          <input type="text" name="keyword" value="Dentist" placeholder="e.g. Dentist, Roofing, Yoga&hellip;" required>
+          <input type="text" name="keyword" value="Dentist"
+                 placeholder="e.g. Dentist, Roofing, Yoga&hellip;" required>
         </div>
         <div class="form-group">
           <label>Location</label>
-          <input type="text" name="location" value="California" placeholder="City, State or 'nationwide'" required>
+          <input type="text" name="location" value="California"
+                 placeholder="City, State or 'nationwide'" required>
         </div>
         <div class="form-group">
           <label>Max Leads</label>
@@ -44,21 +54,91 @@
     <div class="progress-bar">
       <div class="progress-fill" id="progress-fill" style="width:0%"></div>
     </div>
+    <div id="result-detail" style="font-size:12px;color:#475569;margin-top:8px"></div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+var pollInterval = null;
+
+async function loadPreFlight() {
+  try {
+    var r = await fetch('/api/plugins/health');
+    var data = await r.json();
+    var s = data.summary || {};
+    var healthy = s.healthy || 0;
+    var degraded = s.degraded || 0;
+    var failed = s.failed || 0;
+    var total = healthy + degraded + failed + (s.unknown || 0);
+    document.getElementById('preflight-summary').textContent =
+      healthy + ' healthy  |  ' + degraded + ' degraded  |  ' + failed + ' failed  (' + total + ' total)';
+    var failedNames = [];
+    var plugins = data.plugins || {};
+    Object.keys(plugins).forEach(function(k) {
+      if (plugins[k].status === 'failed') failedNames.push(k);
+    });
+    if (failedNames.length) {
+      document.getElementById('preflight-failed').textContent =
+        'Failed plugins (will be skipped): ' + failedNames.join(', ');
+    }
+  } catch (e) {
+    document.getElementById('preflight-summary').textContent = 'Could not load plugin status.';
+  }
+}
+
+function startPolling() {
+  if (pollInterval) return;
+  var btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  document.getElementById('progress-card').style.display = 'block';
+
+  pollInterval = setInterval(async function() {
+    var r = await fetch('/api/scrape/status');
+    var s = await r.json();
+    document.getElementById('progress-fill').style.width = s.progress + '%';
+    document.getElementById('lead-count').textContent = s.leads_found + ' leads found';
+    document.getElementById('plugin-label').textContent = s.current_plugin || 'Running...';
+    if (!s.running) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+      btn.disabled = false;
+      btn.textContent = '▶ Run Campaign';
+      if (s.error) {
+        document.getElementById('status-text').textContent = 'Error: ' + s.error;
+        document.getElementById('status-text').style.color = '#b91c1c';
+      } else if (s.progress > 0) {
+        document.getElementById('status-text').textContent =
+          'Done — ' + s.leads_found + ' leads saved';
+        document.getElementById('status-text').style.color = '#15803d';
+        var skippedPart = (s.plugins_skipped && s.plugins_skipped.length)
+          ? ' | Skipped: ' + s.plugins_skipped.join(', ') : '';
+        var dupesPart = s.duplicates_skipped
+          ? ' | ' + s.duplicates_skipped + ' duplicates discarded' : '';
+        document.getElementById('result-detail').textContent =
+          'Plugins run: ' + (s.plugins_run || 0) + skippedPart + dupesPart;
+      }
+    }
+  }, 2000);
+}
+
+fetch('/api/scrape/status').then(function(r) { return r.json(); }).then(function(s) {
+  if (s.running) {
+    document.getElementById('status-text').textContent = 'Resuming...';
+    document.getElementById('progress-fill').style.width = s.progress + '%';
+    document.getElementById('lead-count').textContent = s.leads_found + ' leads found';
+    document.getElementById('plugin-label').textContent = s.current_plugin || 'Running...';
+    startPolling();
+  }
+});
+
 document.getElementById('scrape-form').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const btn = document.getElementById('run-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Running…';
-  document.getElementById('progress-card').style.display = 'block';
-  document.getElementById('status-text').textContent = 'Starting…';
+  document.getElementById('status-text').textContent = 'Starting...';
   document.getElementById('status-text').style.color = '#64748b';
-
+  document.getElementById('result-detail').textContent = '';
   await fetch('/api/scrape', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -68,26 +148,9 @@ document.getElementById('scrape-form').addEventListener('submit', async function
       max_leads: parseInt(this.max_leads.value)
     })
   });
-
-  const poll = setInterval(async () => {
-    const r = await fetch('/api/scrape/status');
-    const s = await r.json();
-    document.getElementById('progress-fill').style.width = s.progress + '%';
-    document.getElementById('lead-count').textContent = s.leads_found + ' leads found';
-    document.getElementById('plugin-label').textContent = s.current_plugin || 'Running…';
-    if (!s.running && s.progress > 0) {
-      clearInterval(poll);
-      btn.disabled = false;
-      btn.textContent = '▶ Run Campaign';
-      if (s.error) {
-        document.getElementById('status-text').textContent = '❌ Error: ' + s.error;
-        document.getElementById('status-text').style.color = '#b91c1c';
-      } else {
-        document.getElementById('status-text').textContent = '✅ Done — ' + s.leads_found + ' leads saved';
-        document.getElementById('status-text').style.color = '#15803d';
-      }
-    }
-  }, 2000);
+  startPolling();
 });
+
+loadPreFlight();
 </script>
 {% endblock %}
