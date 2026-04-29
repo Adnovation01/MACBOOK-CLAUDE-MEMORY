@@ -1,8 +1,6 @@
 import pytest
-import json
 import sys
 import os
-from unittest.mock import patch, MagicMock
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app import app as flask_app
@@ -32,4 +30,12 @@ def test_unauthenticated_leads_redirects(client):
 
 def test_unauthenticated_settings_redirects(client):
     resp = client.get('/settings')
+    assert resp.status_code in (302, 308)
+
+def test_health_endpoint_redirects_unauthenticated(client):
+    resp = client.get('/api/plugins/health')
+    assert resp.status_code in (302, 308)
+
+def test_diagnose_endpoint_redirects_unauthenticated(client):
+    resp = client.post('/api/plugins/diagnose')
     assert resp.status_code in (302, 308)

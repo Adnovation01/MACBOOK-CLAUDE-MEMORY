@@ -27,8 +27,20 @@ ENV_PATH = os.path.join(os.path.dirname(__file__), '.env')
 
 scrape_state = {
     'running': False, 'progress': 0,
-    'leads_found': 0, 'current_plugin': '', 'error': None
+    'leads_found': 0, 'duplicates_skipped': 0,
+    'plugins_run': 0, 'plugins_skipped': [],
+    'current_plugin': '', 'error': None
 }
+
+_health_monitor = None
+
+def _get_health_monitor():
+    global _health_monitor
+    if _health_monitor is None:
+        from src.plugins.plugin_factory import build_plugins
+        from src.plugin_health_monitor import PluginHealthMonitor
+        _health_monitor = PluginHealthMonitor(build_plugins())
+    return _health_monitor
 
 PLUGIN_GROUPS = {
     'Search Engines': ['duckduckgo', 'google_search', 'bing_search', 'google_maps'],
@@ -219,11 +231,19 @@ def scrape():
 
     def run():
         global scrape_state
-        scrape_state = {'running': True, 'progress': 0, 'leads_found': 0,
-                        'current_plugin': 'starting...', 'error': None}
+        scrape_state = {
+            'running': True, 'progress': 0, 'leads_found': 0,
+            'duplicates_skipped': 0, 'plugins_run': 0, 'plugins_skipped': [],
+            'current_plugin': 'starting...', 'error': None
+        }
         try:
+            import datetime as _dt
+            import sqlite3
             from src.plugins.plugin_factory import build_plugins
             from src.scraper_orchestrator import ScraperOrchestrator
+            from src.plugin_health_monitor import PluginHealthMonitor
+            from src.deduplicator import Deduplicator as _Dedup
+            from src.database_manager import DB_PATH
             from src.email_sequence_manager import EmailSequenceManager
 
             def on_progress(plugin_name, leads_so_far):
@@ -234,19 +254,71 @@ def scrape():
                     int((leads_so_far / max(max_leads, 1)) * 90), 90)
 
             plugins_list = build_plugins()
-            orch = ScraperOrchestrator(plugins_list)
+            monitor = PluginHealthMonitor(plugins_list)
+            monitor.run_lightweight_check()
+            healthy_names = set(monitor.get_healthy_plugin_names())
+            skipped_names = [p.name for p in plugins_list if p.name not in healthy_names]
+            active_plugins = [p for p in plugins_list if p.name in healthy_names]
+            scrape_state['plugins_skipped'] = skipped_names
+            scrape_state['plugins_run'] = len(active_plugins)
+
+            orch = ScraperOrchestrator(active_plugins)
             results = orch.scrape(keyword, location, max_leads, on_progress=on_progress)
+
+            # Record any plugins that failed at runtime into the health cache
+            for failed_name in orch.failed_plugins:
+                monitor._cache[failed_name] = {
+                    'status': 'failed',
+                    'error': 'failed during scrape run',
+                    'checked_at': _dt.datetime.now(_dt.timezone.utc).isoformat()
+                }
+            monitor._save_cache()
+
+            # Drop leads with zero contact info — they are useless
+            results = [l for l in results if any([
+                l.email, l.phone,
+                l.facebook_url, l.instagram_handle,
+                l.linkedin_url, l.twitter_handle
+            ])]
+
+            # Cross-campaign dedup by email/phone
+            results, dupes_skipped = _Dedup().filter_existing(results, DB_PATH)
+            scrape_state['duplicates_skipped'] = dupes_skipped
 
             scrape_state['progress'] = 95
             seq_mgr = EmailSequenceManager()
             os.makedirs('data', exist_ok=True)
+
             for lead in results:
-                seq_mgr.schedule(lead)
+                try:
+                    seq_mgr.schedule(lead)
+                except Exception:
+                    pass
+                loc = ', '.join(filter(None, [lead.city, lead.state]))
+                pain = (', '.join(lead.pain_points)
+                        if isinstance(lead.pain_points, list)
+                        else str(lead.pain_points or ''))
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute(
+                        'INSERT INTO leads (name, website, email, phone, location, niche, '
+                        'pain_points, facebook_url, instagram_handle, linkedin_url, twitter_handle) '
+                        'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                        (lead.business_name, lead.website, lead.email,
+                         lead.phone, loc, keyword, pain,
+                         lead.facebook_url, lead.instagram_handle,
+                         lead.linkedin_url, lead.twitter_handle)
+                    )
+
             with open('data/leads.json', 'w') as f:
                 json.dump([l.to_dict() for l in results], f, indent=2, default=str)
             scrape_state.update({
                 'running': False, 'progress': 100,
-                'leads_found': len(results), 'current_plugin': 'Done'})
+                'leads_found': len(results),
+                'duplicates_skipped': dupes_skipped,
+                'plugins_run': len(active_plugins),
+                'plugins_skipped': skipped_names,
+                'current_plugin': 'Done'
+            })
         except Exception as e:
             scrape_state.update({'running': False, 'error': str(e)})
 
@@ -351,6 +423,24 @@ def toggle_plugin():
         json.dump(config, f, indent=2)
     return jsonify({'status': 'success', 'plugin': plugin_name, 'enabled': enabled})
 
+
+@app.route('/api/plugins/health')
+@login_required
+def plugins_health():
+    monitor = _get_health_monitor()
+    cache = monitor.run_lightweight_check()
+    return jsonify({'summary': monitor.get_summary(), 'plugins': cache})
+
+
+@app.route('/api/plugins/diagnose', methods=['POST'])
+@login_required
+def plugins_diagnose():
+    def run_probe():
+        _get_health_monitor().run_full_probe()
+    threading.Thread(target=run_probe, daemon=True).start()
+    return jsonify({'status': 'probe started'})
+
+
 def _save_env(updates: dict):
     lines = []
     if os.path.exists(ENV_PATH):
@@ -410,4 +500,4 @@ def test_gmail():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
