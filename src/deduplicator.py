@@ -1,5 +1,6 @@
+import sqlite3
 from difflib import SequenceMatcher
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from src.models.lead import Lead
 
 class Deduplicator:
@@ -47,3 +48,28 @@ class Deduplicator:
             base.hook_1 = new.hook_1
         if not base.hook_2 and new.hook_2:
             base.hook_2 = new.hook_2
+
+    def filter_existing(self, leads: List[Lead], db_path: str) -> Tuple[List[Lead], int]:
+        try:
+            with sqlite3.connect(db_path) as conn:
+                rows = conn.execute(
+                    "SELECT email, phone FROM leads WHERE email IS NOT NULL OR phone IS NOT NULL"
+                ).fetchall()
+        except Exception:
+            return leads, 0
+
+        known_emails = {r[0].lower() for r in rows if r[0]}
+        known_phones = {r[1] for r in rows if r[1]}
+
+        new_leads: List[Lead] = []
+        skipped = 0
+        for lead in leads:
+            is_dup = (
+                (lead.email and lead.email.lower() in known_emails) or
+                (lead.phone and lead.phone in known_phones)
+            )
+            if is_dup:
+                skipped += 1
+            else:
+                new_leads.append(lead)
+        return new_leads, skipped
