@@ -3,6 +3,9 @@
 {% block heading %}Plugins{% endblock %}
 {% block actions %}
   <span id="save-status" style="font-size:12px;color:#15803d"></span>
+  <button class="btn btn-secondary" id="diagnose-btn" onclick="runDiagnostics()"
+          style="margin-left:12px;font-size:12px">Run Full Diagnostics</button>
+  <span id="diag-status" style="font-size:12px;color:#64748b;margin-left:8px"></span>
 {% endblock %}
 
 {% block content %}
@@ -12,6 +15,10 @@
   {% for pname in plugin_names %}
   {% set enabled = config.get(pname, {}).get('enabled', false) %}
   <div class="plugin-card {% if enabled %}enabled{% endif %}" id="card-{{ pname }}">
+    <span class="health-dot" id="dot-{{ pname }}" style="
+      display:inline-block;width:8px;height:8px;border-radius:50%;
+      background:#94a3b8;margin-right:6px;vertical-align:middle;cursor:default;
+    " title="unknown"></span>
     <span>{{ pname | replace('_', ' ') | title }}</span>
     <label class="toggle-wrap">
       <input type="checkbox" {% if enabled %}checked{% endif %}
@@ -31,23 +38,61 @@
 
 {% block scripts %}
 <script>
+var STATUS_COLORS = {
+  healthy: '#16a34a', degraded: '#ca8a04', failed: '#dc2626', unknown: '#94a3b8'
+};
+
+function applyHealthResults(plugins) {
+  Object.keys(plugins).forEach(function(name) {
+    var info = plugins[name];
+    var dot = document.getElementById('dot-' + name);
+    if (!dot) return;
+    dot.style.background = STATUS_COLORS[info.status] || STATUS_COLORS.unknown;
+    dot.title = info.error ? (info.status + ': ' + info.error) : info.status;
+  });
+}
+
+async function loadHealthStatus() {
+  try {
+    var r = await fetch('/api/plugins/health');
+    var data = await r.json();
+    if (data.plugins) applyHealthResults(data.plugins);
+  } catch (e) { /* non-blocking */ }
+}
+
+async function runDiagnostics() {
+  var btn = document.getElementById('diagnose-btn');
+  var statusEl = document.getElementById('diag-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Running full probe (30s)...';
+  await fetch('/api/plugins/diagnose', { method: 'POST' });
+  setTimeout(async function() {
+    await loadHealthStatus();
+    statusEl.textContent = 'Done';
+    btn.disabled = false;
+    setTimeout(function() { statusEl.textContent = ''; }, 3000);
+  }, 32000);
+}
+
 async function togglePlugin(name, enabled, checkbox) {
-  const r = await fetch('/api/plugins/toggle', {
+  var r = await fetch('/api/plugins/toggle', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({plugin: name, enabled: enabled})
   });
-  const data = await r.json();
-  const card = document.getElementById('card-' + name);
+  var data = await r.json();
+  var card = document.getElementById('card-' + name);
   if (data.status === 'success') {
     card.classList.toggle('enabled', enabled);
-    const msg = document.getElementById('save-status');
-    msg.textContent = '✅ Saved';
-    setTimeout(() => { msg.textContent = ''; }, 2000);
+    var msg = document.getElementById('save-status');
+    msg.textContent = 'Saved';
+    setTimeout(function() { msg.textContent = ''; }, 2000);
   } else {
     checkbox.checked = !enabled;
     alert('Failed: ' + data.message);
   }
 }
+
+loadHealthStatus();
 </script>
 {% endblock %}
