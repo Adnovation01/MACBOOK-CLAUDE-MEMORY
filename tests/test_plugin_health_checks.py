@@ -38,9 +38,22 @@ def test_duckduckgo_health_check_failed_on_exception():
 def test_yelp_health_check_healthy():
     from src.plugins.yelp_plugin import YelpPlugin
     p = YelpPlugin()
-    with patch('requests.head', return_value=_make_response(200)):
+    r = _make_response(200)
+    r.text = '<html>normal yelp page</html>'
+    with patch('requests.get', return_value=r):
         result = p.health_check()
     assert result['status'] == 'healthy'
+
+
+def test_yelp_health_check_degraded_when_cloudflare_blocks():
+    from src.plugins.yelp_plugin import YelpPlugin
+    p = YelpPlugin()
+    r = _make_response(403)
+    r.text = 'Forbidden'
+    with patch('requests.get', return_value=r):
+        result = p.health_check()
+    assert result['status'] == 'degraded'
+    assert 'Cloudflare' in result['error']
 
 
 def test_google_maps_health_check_healthy():

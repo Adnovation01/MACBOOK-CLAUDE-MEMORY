@@ -14,8 +14,10 @@ class YelpPlugin(BasePlugin):
 
     def health_check(self) -> dict:
         try:
-            r = requests.head('https://www.yelp.com', timeout=5,
-                              headers=_H, allow_redirects=True)
+            r = requests.get('https://www.yelp.com/search?find_desc=test&find_loc=Austin+TX',
+                             timeout=8, headers=_H, allow_redirects=True)
+            if r.status_code == 403 or 'enable JS' in r.text or 'cf-browser-verification' in r.text:
+                return {"status": "degraded", "error": "Cloudflare bot protection active — search results blocked"}
             if r.status_code < 500:
                 return {"status": "healthy", "error": None}
             return {"status": "failed", "error": f"HTTP {r.status_code}"}

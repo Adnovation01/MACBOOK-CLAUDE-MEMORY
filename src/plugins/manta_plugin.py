@@ -14,8 +14,10 @@ class MantaPlugin(BasePlugin):
 
     def health_check(self) -> dict:
         try:
-            r = requests.head('https://www.manta.com', timeout=5,
-                              headers=_H, allow_redirects=True)
+            r = requests.get('https://www.manta.com/mb/dentist/',
+                             timeout=8, headers=_H, allow_redirects=True)
+            if r.status_code == 403:
+                return {"status": "degraded", "error": "Cloudflare bot protection active — search results blocked"}
             if r.status_code < 500:
                 return {"status": "healthy", "error": None}
             return {"status": "failed", "error": f"HTTP {r.status_code}"}

@@ -30,9 +30,10 @@ class BBBPlugin(BasePlugin):
             url = f"https://www.bbb.org/search?find_text={quote(keyword)}&find_loc={quote(location)}"
             r = requests.get(url, headers=_H, timeout=15)
             soup = BeautifulSoup(r.text, 'html.parser')
-            for card in soup.select('a.bds-h4')[:max_leads]:
+            for card in soup.select('h3.result-business-name')[:max_leads]:
+                a = card.find('a')
                 name = card.get_text(strip=True)
-                href = card.get('href', '')
+                href = a.get('href', '') if a else ''
                 if name:
                     leads.append(Lead(business_name=name, website=f"https://www.bbb.org{href}", city=city, state=state, sources=['bbb']))
         except Exception:
