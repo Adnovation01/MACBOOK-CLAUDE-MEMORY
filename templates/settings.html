@@ -89,6 +89,76 @@
     </div>
   </div>
 
+  <div class="card" style="grid-column:1/-1">
+    <div class="card-header">
+      <h3>&#128101; Social Media Credentials</h3>
+      <span style="font-size:11px;color:#94a3b8">Required for Facebook, Instagram, LinkedIn, Twitter scraping &mdash; stored locally, never transmitted</span>
+    </div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">Facebook &nbsp;<span id="fb-status" style="font-size:11px;color:{{ '#15803d' if social_creds.facebook else '#94a3b8' }}">{{ '&#10003; Set' if social_creds.facebook else 'Not configured' }}</span></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email / Username</label>
+              <input type="text" id="fb_user" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="fb_pass" placeholder="{{ '••••••••' if social_creds.facebook else 'password' }}">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">Instagram &nbsp;<span id="ig-status" style="font-size:11px;color:{{ '#15803d' if social_creds.instagram else '#94a3b8' }}">{{ '&#10003; Set' if social_creds.instagram else 'Not configured' }}</span></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Username</label>
+              <input type="text" id="ig_user" placeholder="@username">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="ig_pass" placeholder="{{ '••••••••' if social_creds.instagram else 'password' }}">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">LinkedIn &nbsp;<span id="li-status" style="font-size:11px;color:{{ '#15803d' if social_creds.linkedin else '#94a3b8' }}">{{ '&#10003; Set' if social_creds.linkedin else 'Not configured' }}</span></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email</label>
+              <input type="text" id="li_user" placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="li_pass" placeholder="{{ '••••••••' if social_creds.linkedin else 'password' }}">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p style="font-weight:600;margin-bottom:8px">Twitter / X &nbsp;<span id="tw-status" style="font-size:11px;color:{{ '#15803d' if social_creds.twitter else '#94a3b8' }}">{{ '&#10003; Set' if social_creds.twitter else 'Not configured' }}</span></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Username / Email</label>
+              <input type="text" id="tw_user" placeholder="@handle or email">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="tw_pass" placeholder="{{ '••••••••' if social_creds.twitter else 'password' }}">
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <button class="btn btn-secondary" onclick="saveSocialCreds(this)" style="margin-top:12px">&#128190; Save Credentials</button>
+      <div id="creds-result" style="margin-top:8px;font-size:12px"></div>
+    </div>
+  </div>
+
 </div>
 
 <div class="alert alert-info" style="margin-top:4px">
@@ -118,6 +188,37 @@ async function saveAll(btn) {
   const msg = document.getElementById('save-msg');
   msg.textContent = data.status === 'success' ? '✅ Saved' : '❌ ' + data.message;
   setTimeout(() => { msg.textContent = ''; }, 3000);
+}
+
+async function saveSocialCreds(btn) {
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+  const platforms = {
+    facebook:  {username: fv('fb_user'), password: fv('fb_pass')},
+    instagram: {username: fv('ig_user'), password: fv('ig_pass')},
+    linkedin:  {username: fv('li_user'), password: fv('li_pass')},
+    twitter:   {username: fv('tw_user'), password: fv('tw_pass')},
+  };
+  const r = await fetch('/api/settings/social-credentials', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(platforms)
+  });
+  const data = await r.json();
+  btn.disabled = false; btn.textContent = '💾 Save Credentials';
+  const el = document.getElementById('creds-result');
+  if (data.status === 'success') {
+    const saved = data.saved || [];
+    const statusMap = {facebook:'fb-status', instagram:'ig-status', linkedin:'li-status', twitter:'tw-status'};
+    saved.forEach(p => {
+      const el2 = document.getElementById(statusMap[p]);
+      if (el2) { el2.textContent = '✓ Set'; el2.style.color = '#15803d'; }
+    });
+    el.textContent = saved.length ? '✅ Saved: ' + saved.join(', ') : 'No changes (fill in username + password to save).';
+    el.style.color = saved.length ? '#15803d' : '#92400e';
+  } else {
+    el.textContent = '❌ Error saving credentials.';
+    el.style.color = '#b91c1c';
+  }
 }
 
 async function testGmail(btn) {

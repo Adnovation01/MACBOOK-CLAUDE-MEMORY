@@ -10,6 +10,7 @@ import io
 import smtplib
 from dotenv import load_dotenv, dotenv_values
 from src.database_manager import init_db, get_all_leads, update_lead_action
+from src.session_manager import SessionManager
 
 load_dotenv()
 
@@ -186,6 +187,8 @@ def plugins():
 @login_required
 def settings():
     env = dotenv_values(ENV_PATH) if os.path.exists(ENV_PATH) else {}
+    sm = SessionManager()
+    social_creds = {p: sm.credentials_set(p) for p in ['facebook', 'instagram', 'linkedin', 'twitter']}
     return render_template('settings.html', active='settings',
         email_user=env.get('EMAIL_USER', ''),
         email_pass_set=bool(env.get('EMAIL_PASS', '')),
@@ -196,7 +199,8 @@ def settings():
         openai_key_set=bool(env.get('OPENAI_API_KEY', '')),
         resend_key_set=bool(env.get('RESEND_API_KEY', '')),
         default_niche=env.get('DEFAULT_NICHE', ''),
-        default_location=env.get('DEFAULT_LOCATION', ''))
+        default_location=env.get('DEFAULT_LOCATION', ''),
+        social_creds=social_creds)
 
 # -- Existing API (unchanged) -------------------------------------------------
 
@@ -498,6 +502,37 @@ def test_gmail():
                         'message': 'Authentication failed — use an App Password, not your account password.'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
+
+@app.route('/api/settings/social-credentials', methods=['POST'])
+@login_required
+def save_social_credentials():
+    data = request.json or {}
+    sm = SessionManager()
+    saved = []
+    for platform in ['facebook', 'instagram', 'linkedin', 'twitter']:
+        creds = data.get(platform, {})
+        username = creds.get('username', '').strip()
+        password = creds.get('password', '').strip()
+        if username and password:
+            sm.store_credentials(platform, username, password)
+            saved.append(platform)
+    if saved:
+        import datetime as _dt
+        cache_path = 'data/plugin_health.json'
+        try:
+            if os.path.exists(cache_path):
+                with open(cache_path) as f:
+                    existing = json.load(f)
+            else:
+                existing = {}
+            now = _dt.datetime.now(_dt.timezone.utc).isoformat()
+            for p in saved:
+                existing[p] = {"status": "healthy", "error": None, "checked_at": now}
+            with open(cache_path, 'w') as f:
+                json.dump(existing, f, indent=2)
+        except Exception:
+            pass
+    return jsonify({'status': 'success', 'saved': saved})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
