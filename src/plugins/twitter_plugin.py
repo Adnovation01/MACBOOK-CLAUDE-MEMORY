@@ -24,6 +24,11 @@ class TwitterPlugin(BasePlugin):
     def is_available(self) -> bool:
         return PLAYWRIGHT_AVAILABLE and self._sessions.is_authenticated('twitter')
 
+    def health_check(self) -> dict:
+        if not self._sessions.is_authenticated(self.name):
+            return {"status": "degraded", "error": "missing credentials — add session via Settings"}
+        return {"status": "healthy", "error": None}
+
     def search(self, keyword: str, location: str, max_leads: int) -> List[Lead]:
         if not self.is_available():
             return []
